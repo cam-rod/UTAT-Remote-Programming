@@ -37,21 +37,61 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+extern UART_HandleTypeDef UartHandle;
+extern CRC_HandleTypeDef CrcHandle;
+extern volatile uint32_t EnableSwitchOver;
+#ifdef ENCRYPT
+extern CRYP_HandleTypeDef DecHandle;
+#endif
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
+/* Notable Flash addresses */
+#define FLASH_START_BANK1                ((uint32_t)0x08000000)
+#define FLASH_START_BANK2                ((uint32_t)0x08040000)
+#define USER_FLASH_END_ADDRESS           ((uint32_t)0x08080000)
 
+#define NVIC_VT_COUNT                    (118U)
+#define NVIC_VT_SIZE                     (0x1D8U)
+#define NVIC_VT_FLASH_B1                 FLASH_START_BANK1
+#define NVIC_VT_FLASH_B2                 (FLASH_START_BANK1+NVIC_VT_SIZE)
+   
+#define CCRAM_START_BANK1                (CCMSRAM_BASE)
+#define CCRAM_START_BANK2                (CCMSRAM_BASE+4000U)
+
+#define USARTx                           USART1
+#define USARTx_CLK_ENABLE()              __HAL_RCC_USART1_CLK_ENABLE()
+#define USARTx_RX_GPIO_CLK_ENABLE()      __HAL_RCC_GPIOA_CLK_ENABLE()
+#define USARTx_TX_GPIO_CLK_ENABLE()      __HAL_RCC_GPIOA_CLK_ENABLE()
+
+#define USARTx_FORCE_RESET()             __HAL_RCC_USART1_FORCE_RESET()
+#define USARTx_RELEASE_RESET()           __HAL_RCC_USART1_RELEASE_RESET()
+
+/* Definition for USARTx Pins */
+#define USARTx_TX_PIN                    GPIO_PIN_9
+#define USARTx_TX_GPIO_PORT              GPIOA
+#define USARTx_TX_AF                     GPIO_AF7_USART1
+#define USARTx_RX_PIN                    GPIO_PIN_10
+#define USARTx_RX_GPIO_PORT              GPIOA
+#define USARTx_RX_AF                     GPIO_AF7_USART1
+#define DEMO_LED_PIN                     LED3_PIN
+#define DEMO_LED_GPIO                    LED3_GPIO_PORT
+
+
+extern void (* const _vectab[NVIC_VT_COUNT])(void);
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
+#define CCM_SIZE 0x1000U
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
+void SystemClock_Config(void);
+void HAL_HRTIM_MspPostInit(HRTIM_HandleTypeDef *hhrtim);
+void LED_Demo_Init(void);
 
 /* USER CODE BEGIN EFP */
 

@@ -147,7 +147,122 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 }
 
 /* USER CODE BEGIN 1 */
+/**
+  * @brief CRC MSP Initialization
+  *        This function configures the hardware resources used in this example:
+  *           - Peripheral's clock enable
+  * @param hcrc: CRC handle pointer
+  * @retval None
+  */
+void HAL_CRC_MspInit(CRC_HandleTypeDef *hcrc)
+{
+  /* CRC Peripheral clock enable */
+  __HAL_RCC_CRC_CLK_ENABLE();
+}
 
+/**
+  * @brief CRC MSP De-Initialization
+  *        This function freeze the hardware resources used in this example:
+  *          - Disable the Peripheral's clock
+  * @param hcrc: CRC handle pointer
+  * @retval None
+  */
+void HAL_CRC_MspDeInit(CRC_HandleTypeDef *hcrc)
+{
+  /* CRC Peripheral clock disable */
+  __HAL_RCC_CRC_CLK_DISABLE();
+}
+
+#ifdef ENCRYPT
+/**
+  * @brief  Initialize the CRYP MSP.
+  * @param  hcryp: pointer to a CRYP_HandleTypeDef structure that contains
+  *         the configuration information for CRYP module
+  * @retval None
+  */
+void HAL_CRYP_MspInit(CRYP_HandleTypeDef *hcryp)
+{
+  __HAL_RCC_AES_CLK_ENABLE();
+}
+
+/**
+  * @brief  DeInitializes CRYP MSP.
+  * @param  hcryp: pointer to a CRYP_HandleTypeDef structure that contains
+  *         the configuration information for CRYP module
+  * @retval None
+  */
+void HAL_CRYP_MspDeInit(CRYP_HandleTypeDef *hcryp)
+{
+  __HAL_RCC_AES_CLK_DISABLE();
+
+}
+
+#endif
+
+
+
+void HAL_HRTIM_MspInit(HRTIM_HandleTypeDef *hhrtim)
+{
+
+  if(hhrtim->Instance == HRTIM1)
+  {
+    /* USER CODE BEGIN HRTIM1_MspInit 0 */
+
+    /* USER CODE END HRTIM1_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_HRTIM1_CLK_ENABLE();
+    /* USER CODE BEGIN HRTIM1_MspInit 1 */
+
+    /* USER CODE END HRTIM1_MspInit 1 */
+  }
+
+}
+
+void HAL_HRTIM_MspPostInit(HRTIM_HandleTypeDef *hhrtim)
+{
+
+  GPIO_InitTypeDef GPIO_InitStruct;
+
+  if(hhrtim->Instance == HRTIM1)
+  {
+    /* USER CODE BEGIN HRTIM1_MspPostInit 0 */
+
+    /* USER CODE END HRTIM1_MspPostInit 0 */
+
+    /**HRTIM1 GPIO Configuration
+    PC8      ------> HRTIM1_CHE1
+    */
+
+    GPIO_InitStruct.Pin = GPIO_PIN_8 + GPIO_PIN_9;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF3_HRTIM1;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+    /* USER CODE BEGIN HRTIM1_MspPostInit 1 */
+
+    /* USER CODE END HRTIM1_MspPostInit 1 */
+  }
+
+}
+
+void HAL_HRTIM_MspDeInit(HRTIM_HandleTypeDef *hhrtim)
+{
+
+  if(hhrtim->Instance == HRTIM1)
+  {
+    /* USER CODE BEGIN HRTIM1_MspDeInit 0 */
+
+    /* USER CODE END HRTIM1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_HRTIM1_CLK_DISABLE();
+    /* USER CODE BEGIN HRTIM1_MspDeInit 1 */
+
+    /* USER CODE END HRTIM1_MspDeInit 1 */
+  }
+
+}
 /* USER CODE END 1 */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

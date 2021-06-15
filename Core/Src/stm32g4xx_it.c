@@ -42,7 +42,9 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+/* UART handler declared in "main.c" file */
+extern UART_HandleTypeDef UartHandle;
+extern __IO uint32_t uwTick;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,7 +68,14 @@
 /******************************************************************************/
 /**
   * @brief This function handles Non maskable interrupt.
+  * There is a possibility that NMI will be called during the transition phase
+  * as it cannot be really disabled. To prevent system crash, make sure NMI
+  * handler is not modified in any patch code.
+  * @param  None
+  * @retval None
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void NMI_Handler(void)
 {
   /* USER CODE BEGIN NonMaskableInt_IRQn 0 */
@@ -81,7 +90,11 @@ void NMI_Handler(void)
 
 /**
   * @brief This function handles Hard fault interrupt.
+  * @param  None
+  * @retval None
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
@@ -96,7 +109,11 @@ void HardFault_Handler(void)
 
 /**
   * @brief This function handles Memory management fault.
+  * @param  None
+  * @retval None
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void MemManage_Handler(void)
 {
   /* USER CODE BEGIN MemoryManagement_IRQn 0 */
@@ -111,7 +128,11 @@ void MemManage_Handler(void)
 
 /**
   * @brief This function handles Prefetch fault, memory access fault.
+  * @param  None
+  * @retval None
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void BusFault_Handler(void)
 {
   /* USER CODE BEGIN BusFault_IRQn 0 */
@@ -126,7 +147,11 @@ void BusFault_Handler(void)
 
 /**
   * @brief This function handles Undefined instruction or illegal state.
+  * @param  None
+  * @retval None
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void UsageFault_Handler(void)
 {
   /* USER CODE BEGIN UsageFault_IRQn 0 */
@@ -141,7 +166,11 @@ void UsageFault_Handler(void)
 
 /**
   * @brief This function handles System service call via SWI instruction.
+  * @param  None
+  * @retval None
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void SVC_Handler(void)
 {
   /* USER CODE BEGIN SVCall_IRQn 0 */
@@ -154,7 +183,11 @@ void SVC_Handler(void)
 
 /**
   * @brief This function handles Debug monitor.
+  * @param  None
+  * @retval None
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void DebugMon_Handler(void)
 {
   /* USER CODE BEGIN DebugMonitor_IRQn 0 */
@@ -167,7 +200,11 @@ void DebugMon_Handler(void)
 
 /**
   * @brief This function handles Pendable request for system service.
+  * @param  None
+  * @retval None
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void PendSV_Handler(void)
 {
   /* USER CODE BEGIN PendSV_IRQn 0 */
@@ -180,7 +217,11 @@ void PendSV_Handler(void)
 
 /**
   * @brief This function handles System tick timer.
+  * @param  None
+  * @retval None
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
@@ -202,6 +243,8 @@ void SysTick_Handler(void)
 /**
   * @brief This function handles EXTI line[15:10] interrupts.
   */
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
 void EXTI15_10_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI15_10_IRQn 0 */
@@ -214,6 +257,42 @@ void EXTI15_10_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+/**
+* @brief This function handlesHRTIM1_TIME_IRQHandler interrupts.
+*/
 
+#pragma location="ccmram1"
+#pragma location="ccmram1_init"
+void HRTIM1_TIME_IRQHandler(void)
+{
+  static volatile uint32_t tempo = 0;
+
+  LED1_GPIO_PORT->BSRR = (uint32_t)LED1_PIN;
+
+  HRTIM1->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_E].TIMxICR = HRTIM_TIM_FLAG_REP;
+
+  if ((HRTIM1->sCommonRegs.ISR)& HRTIM_FLAG_BMPER)
+  {
+    HRTIM1->sCommonRegs.ICR = HRTIM_FLAG_BMPER;
+    tempo++;
+  }
+
+  if (tempo > 1)
+  {
+    tempo = 0;
+    if ((DAC4->STR2) < (16 << 16) + 180)
+    {
+      (DAC4->STR2)++;
+    }
+    else
+    {
+      DAC4->STR2 = (16 << 16) + 35;
+    }
+  }
+
+  EnableSwitchOver = 0;
+
+  LED1_GPIO_PORT->BRR = (uint32_t)LED1_PIN;
+}
 /* USER CODE END 1 */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

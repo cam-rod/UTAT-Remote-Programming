@@ -78,6 +78,9 @@ extern CRYP_HandleTypeDef DecHandle;
 #define DEMO_LED_PIN                     LED3_PIN
 #define DEMO_LED_GPIO                    LED3_GPIO_PORT
 
+// Used in HRTIM1
+#define LED1_GPIO_PORT GPIOG
+#define LED1_PIN GPIO_PIN_9
 
 extern void (* const _vectab[NVIC_VT_COUNT])(void);
 /* USER CODE END EC */

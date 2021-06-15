@@ -19,6 +19,23 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "menu.h"
+#include "common.h"
+
+/* UART handler declaration */
+UART_HandleTypeDef UartHandle;
+
+/* CRC handler declaration */
+CRC_HandleTypeDef CrcHandle;
+
+/* Flag for synchronizing Flash bank update with real time task */
+volatile uint32_t EnableSwitchOver;
+
+#ifdef ENCRYPT
+CRYP_HandleTypeDef DecHandle;
+uint32_t aDecKey[] = {0x41932307, 0x5aee6b8c, 0x23e9da76, 0x9a014413};
+uint32_t aIniVec[] = {0x62797465, 0x202a696e, 0x426c6f63, 0x6b2c2063};
+#endif
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -51,12 +68,31 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+static uint32_t Bank_Swap(void);
+static void memcopy(uint32_t *destination, uint32_t *source, uint32_t size);
+static void LoadRamBank1(uint32_t offset);
+static void LoadRamBank2(uint32_t offset);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+/**
+  * @brief  Interrupt vector table relocation
+  * @param  destination: The target in RAM
+  * @param  source: The original flash address
+  * @param  size: number of words
+  * @retval None
+  */
+static void memcopy(uint32_t *destination, uint32_t *source, uint32_t size)
+{
+  uint32_t i;
 
+  /* It is important to make sure the vector table stays put when playing with memory mapping */
+  for (i = 0U; i < size; i++)
+  {
+    destination[i] = source[i];
+  }
+}
 /* USER CODE END 0 */
 
 /**
@@ -66,7 +102,31 @@ static void MX_LPUART1_UART_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+    /* here we check for which artifical bank in CCM_RAM is the code in active Flash bank intended */
+  if ((FLASH->OPTR & FLASH_OPTR_BFB2) == FLASH_OPTR_BFB2)
+  {
+    LoadRamBank2(0U);
+    SCB->VTOR = (uint32_t)vector2;
+  }
+  else
+  {
+    LoadRamBank1(0U);
+    SCB->VTOR = (uint32_t)vector1;
+  }
 
+  /* restore interrupt capability */
+  __enable_irq();
+
+  __HAL_RCC_SYSCFG_CLK_ENABLE();
+  /* STM32L0xx HAL library initialization:
+       - Configure the Flash prefetch
+       - Systick timer is configured by default as source of time base, but user
+         can eventually implement his proper time base source (a general purpose
+         timer for example or other time source), keeping in mind that Time base
+         duration should be kept 1ms since PPP_TIMEOUT_VALUEs are defined and
+         handled in milliseconds basis.
+       - Low Level Initialization
+     */
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -86,18 +146,39 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_LPUART1_UART_Init();
-  /* USER CODE BEGIN 2 */
 
+  /* USER CODE BEGIN 2 */
+    /* Initialization of the UART driver */
+  COM_Init();
+
+  /* Initialization of the high brightness LED demo */
+  LED_Demo_Init();
+
+#ifdef ENCRYPT
+  DecHandle.Instance = AES;
+  DecHandle.Init.DataType = CRYP_DATATYPE_8B;
+  DecHandle.Init.KeySize = CRYP_KEYSIZE_128B;
+  DecHandle.Init.pInitVect = &aIniVec[0];
+  DecHandle.Init.Algorithm = CRYP_AES_CTR;
+  DecHandle.Init.pKey = &aDecKey[0];
+  DecHandle.Init.KeyIVConfigSkip = CRYP_KEYIVCONFIG_ONCE;
+  HAL_CRYP_Init(&DecHandle);
+#endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
+    /* Display main menu */
+    Main_Menu();
 
+    /* Perform the switch action */
+    if (Bank_Swap() == 0U)
+    {
+      Serial_PutString((uint8_t *)"Bank swap passed. \r\n");
+    }
+    /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -125,9 +206,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV4;
-  RCC_OscInitStruct.PLL.PLLN = 85;
+  RCC_OscInitStruct.PLL.PLLN = 75;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV8;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -139,10 +220,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV4;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
   {
     Error_Handler();
   }
@@ -241,7 +322,59 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+static uint32_t Bank_Swap( void )
+{
+  /* branch based on the current bank setting */
+  if (READ_BIT(SYSCFG->MEMRMP, SYSCFG_MEMRMP_FB_MODE) == 0 )
+  {
+    /* called with offset of bank size - the code is still in the "other" bank*/
+    LoadRamBank2(0x00040000U);
+  }
+  else
+  {
+    LoadRamBank1(0x00040000U);
+  }
 
+  EnableSwitchOver = 1;
+  while(EnableSwitchOver != 0)
+  {}
+
+#ifdef DEBUG_SIG
+  HAL_GPIO_TogglePin(DEMO_LED_GPIO, DEMO_LED_PIN);
+#endif
+  __disable_irq();
+
+  /* disable ART */
+  CLEAR_BIT(FLASH->ACR, FLASH_ACR_PRFTEN);
+  CLEAR_BIT(FLASH->ACR, FLASH_ACR_ICEN | FLASH_ACR_DCEN);
+
+  /* clear cache */
+  SET_BIT(FLASH->ACR, FLASH_ACR_ICRST | FLASH_ACR_DCRST);
+
+  /* branch based on the current bank setting */
+  if (READ_BIT(SYSCFG->MEMRMP, SYSCFG_MEMRMP_FB_MODE) == 0 )
+  {
+    /*switch to new vector table */
+    SCB->VTOR = (uint32_t)vector2;
+    SET_BIT(SYSCFG->MEMRMP, SYSCFG_MEMRMP_FB_MODE);
+  }
+  else
+  {
+    SCB->VTOR = (uint32_t)vector1;
+    CLEAR_BIT(SYSCFG->MEMRMP, SYSCFG_MEMRMP_FB_MODE);
+  }
+
+  /* enable ART */
+  SET_BIT(FLASH->ACR, FLASH_ACR_PRFTEN);
+  SET_BIT(FLASH->ACR, FLASH_ACR_ICEN | FLASH_ACR_DCEN);
+
+  /* restore interrupt capability */
+  __enable_irq();
+#ifdef DEBUG_SIG
+  HAL_GPIO_TogglePin(DEMO_LED_GPIO, DEMO_LED_PIN);
+#endif
+  return 0;
+}
 /* USER CODE END 4 */
 
 /**
